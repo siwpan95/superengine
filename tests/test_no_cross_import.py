@@ -71,12 +71,23 @@ def test_three_repos_never_import_each_other():
     print(f'  ok: 三仓源码零跨仓 import（扫描 {len(_FORBIDDEN)} 个仓）')
 
 
+#: 运行时也要防：`import_bridge('3dworld')` 这类调用会绕过静态 import 扫描
+_RUNTIME_IMPORT_RE = re.compile(r"""import_bridge\(\s*['"]([\w-]+)['"]""")
+
+
 def test_bridges_are_the_only_importers():
-    """组合仓里只有 `superengine/bridges/` 允许 import 三仓；装配层/契约层不许。"""
+    """组合仓里只有 `superengine/bridges/` 允许引用三仓（**静态 + 运行时**）。
+
+    只扫 `import` 语句是不够的：`import_bridge('3dworld')` 是函数调用，
+    静态扫描看不见，却同样把三仓拉了进来 —— 所以这里**连带扫运行时调用**。
+    """
+    # 只扫 **包体** superengine/（tests/ 是验证代码，不算生产引用；
+    # 且扫自己会因为正则字面量自匹配而误报）
     here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    banned = {pkg for s in _FORBIDDEN.values() for pkg in s}
+    pkg = os.path.join(here, 'superengine')
+    banned = {pkg_name for s in _FORBIDDEN.values() for pkg_name in s}
     bad = []
-    for dirpath, dirnames, filenames in os.walk(here):
+    for dirpath, dirnames, filenames in os.walk(pkg):
         dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS]
         if os.path.basename(dirpath) == 'bridges':
             continue
@@ -90,9 +101,17 @@ def test_bridges_are_the_only_importers():
                 mod = m.group(1) or m.group(2) or ''
                 if mod.split('.')[0] in banned:
                     bad.append((path, m.group(0).strip()))
-    assert not bad, 'bridges/ 之外不允许 import 三仓：\n' + '\n'.join(
+            for m in _RUNTIME_IMPORT_RE.finditer(text):
+                if m.group(1) in _FORBIDDEN_BY_PKG or m.group(1) in {
+                        r for r in _FORBIDDEN}:
+                    bad.append((path, m.group(0).strip()))
+    assert not bad, 'bridges/ 之外不允许引用三仓（含运行时 import_bridge）：\n' + '\n'.join(
         f'  {p}: {s}' for p, s in bad)
-    print('  ok: 组合仓内只有 bridges/ 引用三仓')
+    print('  ok: 组合仓内只有 bridges/ 引用三仓（静态 import + 运行时调用都扫）')
+
+
+#: 仓名（import_bridge 用的是仓名，不是包名）
+_FORBIDDEN_BY_PKG = {pkg: repo for repo, s in _FORBIDDEN.items() for pkg in s}
 
 
 def test_repo_roots_are_resolvable():

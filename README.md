@@ -34,6 +34,9 @@ python -m superengine.cli.boot --report     # 装配 + 门禁 + 契约版本报�
 python -m tests.test_assembly               # 装配门禁
 python -m tests.test_pipeline               # 三仓流水线（M1/M2）
 python -m tests.test_no_cross_import        # 三仓互不引用门禁
+python -m tests.test_live                   # M3 Hmr 热重载
+python -m tests.test_backends               # M4 Impl 多实现可替换
+python -m tests.run_tests                   # 以上五个模块聚合跑
 ```
 
 装配产物（示意）：
@@ -72,7 +75,10 @@ tests/                 # 三道门禁
 
 - **M1 ✅ 补断腿**：worldbuilder → 3dworld 接通（此前表现层那一腿是断的）。
 - **M2 ✅ 玩法托管**：an-engine 的 `Context` 被**托管**（非替换，保其零第三方依赖）。
-- M3 热重载（cordis `Hmr`）、M4 `reflect.Impl` 多实现可替换 —— 待做。
+- **M3 ✅ cordis `Hmr` 热重载**：改 bridge 模块 → 旧 fiber 完整回滚、新 fiber 换入；
+  判据是 **registry 规模不增长**（否则就是"两份逻辑同时跑"）。
+- **M4 ✅ `reflect.Impl` 多实现可替换**：声明 `terrain_backend` 接口 + `__cordis_check__`
+  校验器；clipmap / flat 两个实现可换，**消费方代码一行不改**；不合格实现被拒（PENDING，不崩）。
 
 ## 许可
 
