@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "superengine"
+version = "0.1.0"
+description = "基于 cordis 的三仓组合仓（worldbuilder / an-engine / 3dworld）：契约 + 桥接 + 装配 + 门禁"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = ["PyYAML", "watchdog", "numpy"]
+
+[tool.setuptools]
+packages = ["superengine", "superengine.contracts", "superengine.bridges", "superengine.cli"]

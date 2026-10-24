@@ -1,0 +1,7 @@
+PyYAML
+watchdog
+numpy
+# cordis：本仓不 vendor 它。pip 无官方发行时，用环境变量指向源码目录：
+#   CORDIS_SRC=<3dworld>/vendor/cordis/src
+# 三仓源码定位（未 pip 安装时用）：
+#   WORLDBUILDER_SRC / TDWORLD_SRC / ANENGINE_SRC

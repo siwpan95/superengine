@@ -1,0 +1,26 @@
+# 超级引擎装配声明：挂哪些桥接插件，**全由配置驱动**。
+#
+# - `name` 经 importlib 解析为模块并取其 `default`（Service 类）；
+#   组合仓有白名单门禁：只允许 superengine.bridges.*（name 会被 import = 执行代码）。
+# - `config` 透传给 Service 构造。
+# - **挂载顺序不由书写顺序决定**，而由各 Service 的 `inject` 依赖图决定
+#   （cordis 语义）：tdworld / anengine 都 inject 了 worldbuilder，所以无论谁写在前面，
+#   worldbuilder 都先就绪 —— 这是 cordis 的核心收益。
+#
+# 运行（headless 装配验证）：python -m superengine.cli.boot
+
+- name: superengine.bridges.worldbuilder_bridge
+  id: worldbuilder
+  config:
+    default_tile_m: 2.0
+
+- name: superengine.bridges.tdworld_bridge
+  id: tdworld
+  config:
+    levels: 4
+    grid: 16
+    base_cell: 2.0
+
+- name: superengine.bridges.anengine_bridge
+  id: anengine
+  config: {}
