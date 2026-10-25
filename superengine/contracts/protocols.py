@@ -26,6 +26,8 @@ __all__ = [
     "GameplayWorld",
     "TerrainSink",
     "RenderSink",
+    "DungeonSource",
+    "RulesKernel",
     "CONTRACTS",
 ]
 
@@ -87,6 +89,32 @@ class RenderSink(Protocol):
                                  height_scale: float = 1.0) -> Dict[str, Any]: ...
 
 
+@runtime_checkable
+class DungeonSource(Protocol):
+    """地牢生成（房间/走廊）与其**可解关卡图**。
+
+    `dungeon_graph` 的产物与 worldspec 的 `graph.json` **同形**，
+    所以下游 an-engine 的 ``MapGraph`` 能直接吃它 —— 生成 → 玩法共用一套形状。
+    """
+
+    def generate_dungeon(self, width: int, height: int, rooms: int, seed: int) -> dict: ...
+    def dungeon_graph(self, grid, *, locks: int, loops: int, seed: int) -> dict: ...
+    def grammar_names(self, grammar: dict, n: int, *, seed: int) -> list: ...
+
+
+@runtime_checkable
+class RulesKernel(Protocol):
+    """数值规则内核（骰系）。
+
+    数值来源见提供方仓库的许可声明（an-engine：SRD 5.1 / CC-BY-4.0，随 NOTICE 分发）。
+    """
+
+    def roll_dice(self, count: int, size: int) -> int: ...
+    def roll_d20(self) -> int: ...
+    def roll_3d6(self): ...
+    def success_chance(self, skill_level: int) -> int: ...
+
+
 #: 契约名 → Protocol（供结构校验与文档生成）
 CONTRACTS = {
     "worldspec_source": WorldSpecSource,
@@ -95,4 +123,6 @@ CONTRACTS = {
     "gameplay_world": GameplayWorld,
     "terrain_sink": TerrainSink,
     "render_sink": RenderSink,
+    "dungeon_source": DungeonSource,
+    "rules_kernel": RulesKernel,
 }

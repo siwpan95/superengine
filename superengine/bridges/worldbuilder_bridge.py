@@ -67,6 +67,26 @@ class WorldbuilderBridge(Service):
                             height_scale: float = 1.0) -> Callable[[float, float], float]:
         return self._mod.make_height_sampler(hm, tile_m=tile_m, height_scale=height_scale)
 
+    # ---- dungeon_source ----
+    def generate_dungeon(self, width: int = 48, height: int = 32, rooms: int = 8,
+                         seed: int = 0) -> dict:
+        """生成房间型地牢（网格 + 房间矩形 + 连接）。"""
+        return self._mod.generate_dungeon(width=width, height=height,
+                                          rooms=rooms, seed=seed)
+
+    def dungeon_graph(self, grid, *, locks: int = 1, loops: int = 2,
+                      seed: int = 0) -> dict:
+        """地牢网格 → **可解关卡图**（nodes/edges/keys/entrance/boss）。
+
+        产物与 worldspec 的 ``graph.json`` 同形，所以 an-engine 的 ``MapGraph``
+        可以直接吃它 —— 这就是「生成 → 玩法」共用一套契约形状的地方。
+        """
+        return self._mod.dungeon_graph(grid, locks=locks, loops=loops, seed=seed)
+
+    def grammar_names(self, grammar: dict, n: int = 1, *, seed: int = 0) -> list:
+        """文法命名（怪物 / 宝物 / 地名）。"""
+        return self._mod.grammar_names(grammar, n, seed=seed)
+
     # ---- 诊断 ----
     def contract_report(self) -> Dict[str, str]:
         """契约版本 → 该仓声明的兼容区间（排障用）。"""

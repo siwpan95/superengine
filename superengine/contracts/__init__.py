@@ -11,7 +11,8 @@ from typing import Any, Dict
 
 from ._version import (ContractVersionError, check_all, check_compat,  # noqa: F401
                        parse_interval, parse_version, version_in_interval)
-from .protocols import (CONTRACTS, GameplayWorld, MapGraphSource, RenderSink,  # noqa: F401
+from .protocols import (CONTRACTS, DungeonSource, GameplayWorld,  # noqa: F401
+                        MapGraphSource, RenderSink, RulesKernel,
                         TerrainSink, TerrainSource, WorldSpecSource)
 
 __all__ = [
@@ -26,6 +27,8 @@ __all__ = [
     "GameplayWorld",
     "TerrainSink",
     "RenderSink",
+    "DungeonSource",
+    "RulesKernel",
 ]
 
 #: 契约名 → 版本号（**独立版本化**：不跟随任何一仓的发版节奏）
@@ -36,6 +39,8 @@ CONTRACT_VERSIONS: Dict[str, str] = {
     "gameplay_world": "1.0.0",
     "terrain_sink": "1.0.0",
     "render_sink": "1.0.0",
+    "dungeon_source": "1.0.0",
+    "rules_kernel": "1.0.0",
 }
 
 

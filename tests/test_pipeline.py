@@ -109,6 +109,48 @@ def test_m2_provides_mapgraph_into_hosted_context():
     print('  ok: MapGraph 已挂进托管 Context 且可取回')
 
 
+def test_dungeon_source_produces_solvable_graph():
+    """地牢源：网格 → 可解关卡图（nodes/edges/keys/entrance/boss 齐全）。"""
+    c = ctx()
+    wb = c.worldbuilder
+    d = wb.generate_dungeon(32, 24, rooms=6, seed=3)
+    assert d['grid'].ndim == 2 and len(d['rooms']) >= 2, d.keys()
+    g = wb.dungeon_graph(d['grid'], locks=1, loops=1, seed=3)
+    for key in ('nodes', 'edges', 'keys', 'entrance', 'boss', 'stats'):
+        assert key in g, f'关卡图缺 {key}'
+    assert len(g['nodes']) >= 2 and len(g['edges']) >= 1
+    assert g['entrance'] is not None and g['boss'] is not None
+    print(f"  ok: 地牢源产出可解关卡图（{len(g['nodes'])} 房间 / "
+          f"{len(g['edges'])} 边 / {len(g['keys'])} 钥匙，entrance={g['entrance']} "
+          f"boss={g['boss']}）")
+
+
+def test_dungeon_graph_shape_matches_worldspec_contract():
+    """地牢图与 worldspec 的 graph.json **同形** ⇒ 玩法侧 MapGraph 能直接吃。"""
+    c = ctx()
+    wb = c.worldbuilder
+    d = wb.generate_dungeon(32, 24, rooms=5, seed=11)
+    g = wb.dungeon_graph(d['grid'], locks=0, loops=1, seed=11)
+    node = g['nodes'][0]
+    # worldspec graph.json 的 node 至少带 id；edge 带两端与可选 points
+    assert 'id' in node, node
+    assert all(k in g['edges'][0] for k in ('a', 'b')), g['edges'][0]
+    print('  ok: 地牢图与 worldspec graph.json 同形（node.id / edge.a,b）')
+
+
+def test_rules_kernel_rolls_dice():
+    """规则内核：骰系可用且落在合法区间。"""
+    c = ctx()
+    ae = c.anengine
+    for _ in range(20):
+        assert 1 <= ae.roll_d20() <= 20
+        assert 3 <= ae.roll_dice(3, 6) <= 18
+    dice, total = ae.roll_3d6()
+    assert len(dice) == 3 and sum(dice) == total, (dice, total)
+    assert 0 <= ae.success_chance(12) <= 100
+    print(f'  ok: 规则内核骰系可用（3d6={total}，技能12成功率={ae.success_chance(12)}%）')
+
+
 def main() -> int:
     tests = [(n, f) for n, f in sorted(globals().items())
              if n.startswith('test_') and callable(f)]

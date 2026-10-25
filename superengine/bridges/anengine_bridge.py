@@ -60,6 +60,21 @@ class AnengineBridge(Service):
     def nearest(self, graph: Any, x: float, z: float, **kw) -> Any:
         return self._mod.nearest(graph, x, z, **kw)
 
+    # ---- rules_kernel ----
+    def roll_dice(self, count: int, size: int) -> int:
+        """``count`` 个 ``size`` 面骰之和（3d6 = ``roll_dice(3, 6)``）。"""
+        return self._mod.roll_dice(count, size)
+
+    def roll_d20(self) -> int:
+        return self._mod.roll_d20()
+
+    def roll_3d6(self):
+        """3d6；返回 ``(逐骰列表, 总和)``。"""
+        return self._mod.roll_3d6()
+
+    def success_chance(self, skill_level: int) -> int:
+        return self._mod.success_chance(skill_level)
+
     # ---- 组合语义：从上游世界直接装配玩法世界 ----
     def world_from(self, worldbuilder, spec_dir, strict: bool = False) -> Any:
         """worldspec 目录 → 托管 Context 里挂好 MapGraph 的玩法世界（M2）。"""
