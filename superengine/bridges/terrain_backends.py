@@ -210,10 +210,23 @@ class TerrainConsumer(Service):
         super().__init__(ctx, "terrain_view")
         self.config = config or {}
 
-    def build(self, height_fn, camera=(0.0, 0.0), tile_m: float = 1.0) -> Dict[str, Any]:
-        """用**当前挂着的**后端建网格。"""
+    def build(self, height_fn, camera=(0.0, 0.0), config=None) -> Dict[str, Any]:
+        """用**当前挂着的**后端建网格。
+
+        `config` 由后端的 `clipmap_config(...)` 产出 —— 消费方不知道它长什么样，
+        只负责透传（换后端时 config 的形状可能完全不同）。
+        """
         backend = getattr(self.ctx, TERRAIN_BACKEND)
-        return backend.terrain_mesh(height_fn, camera=camera)
+        return backend.terrain_mesh(height_fn, camera=camera, config=config)
+
+    def make_config(self, levels: int = 5, grid: int = 32, base_cell: float = 1.0):
+        """向**当前**后端要一份配置（消费方依旧不知道具体类型）。
+
+        注意别叫 `config` —— `Service.__init__` 里已有 `self.config` 实例属性，
+        同名方法会被实例属性遮蔽。
+        """
+        backend = getattr(self.ctx, TERRAIN_BACKEND)
+        return backend.clipmap_config(levels=levels, grid=grid, base_cell=base_cell)
 
     def backend_name(self) -> str:
         """当前后端自报的名字（排障用）。"""

@@ -20,6 +20,7 @@ MODULES = [
     ('tests.test_pipeline', 'ALL_PIPELINE_TESTS_PASSED', '三仓流水线（M1 表现腿 / M2 玩法托管）'),
     ('tests.test_live', 'ALL_LIVE_TESTS_PASSED', 'M3 cordis Hmr 热重载'),
     ('tests.test_backends', 'ALL_BACKENDS_TESTS_PASSED', 'M4 reflect.Impl 多实现可替换'),
+    ('tests.test_devloop', 'ALL_DEVLOOP_TESTS_PASSED', '开发循环（M3+M4 接入日常开发）'),
 ]
 
 

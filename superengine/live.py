@@ -42,7 +42,69 @@ ensure_cordis()
 from cordis.hmr import Hmr  # noqa: E402
 from cordis.timer import TimerService  # noqa: E402
 
-__all__ = ["enable_hmr", "hot_reload", "touch_module", "module_file", "HMR_READY"]
+__all__ = ["enable_hmr", "hot_reload", "touch_module", "module_file",
+           "mtime_snapshot", "changed_modules", "reload_entries", "reload_module_files",
+           "registry_size", "snapshot_plugins"]
+
+
+# ---------------------------------------------------- 只读变更检测 ----
+def mtime_snapshot(module_names) -> dict:
+    """一组模块当前的 mtime 快照（**只读**，不改任何文件）。"""
+    snap = {}
+    for name in module_names:
+        try:
+            snap[name] = os.stat(module_file(name)).st_mtime
+        except Exception:                                   # noqa: BLE001
+            snap[name] = None
+    return snap
+
+
+def changed_modules(snapshot: dict) -> list:
+    """与快照比对，返回 mtime 变了的模块名（**只读**；并就地更新快照）。"""
+    changed = []
+    for name, old in list(snapshot.items()):
+        try:
+            now = os.stat(module_file(name)).st_mtime
+        except Exception:                                   # noqa: BLE001
+            continue
+        if old is None or now != old:
+            changed.append(name)
+            snapshot[name] = now
+    return changed
+
+
+def reload_entries(ctx, entry_names) -> list:
+    """对**已在配置树里**的 entry 做 cordis Hmr 重载（不改 mtime）。
+
+    与 `hot_reload` 的区别：那条是"模拟改动 + 显式 poll"，本条是**真实开发循环**
+    用的路径 —— 文件确实被改了，直接让 Hmr 换 fiber。
+    """
+    hmr = ctx.hmr
+    names = [n for n in entry_names]
+    hmr.watch()          # 补快照：entry 可能在 Hmr 启动之后才挂载
+    hmr.reload(names)
+    return names
+
+
+def reload_module_files(module_names) -> list:
+    """把模块从 ``sys.modules`` 剔除并重新导入（**开发循环专用**）。
+
+    这是为了绕开 Hmr 源码自承的 Python 限制：`importlib` 不会重绑定其他模块
+    已持有的引用，所以只重载 entry 的话，**被它 import 的底层模块**（如
+    `worldbuilder.bridge`）改了也不会生效。开发循环里我们明确知道改了谁，
+    就显式把它剔掉重导 —— 代价是：别的模块若已持有旧引用，拿到的仍是旧对象。
+    """
+    reloaded = []
+    for name in module_names:
+        old = sys.modules.pop(name, None)
+        try:
+            importlib.import_module(name)
+            reloaded.append(name)
+        except Exception:                                   # noqa: BLE001
+            if old is not None:
+                sys.modules[name] = old        # 还原，别让进程处在半更新状态
+            raise
+    return reloaded
 
 
 async def enable_hmr(ctx, config: Optional[dict] = None):

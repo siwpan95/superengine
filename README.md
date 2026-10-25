@@ -79,6 +79,32 @@ tests/                 # 三道门禁
   判据是 **registry 规模不增长**（否则就是"两份逻辑同时跑"）。
 - **M4 ✅ `reflect.Impl` 多实现可替换**：声明 `terrain_backend` 接口 + `__cordis_check__`
   校验器；clipmap / flat 两个实现可换，**消费方代码一行不改**；不合格实现被拒（PENDING，不崩）。
+- **M3/M4 已接入实际开发循环**：`python -m superengine.cli.dev` 起常驻会话 ——
+  改 `configs/dev.json`（seed / tile_m / backend …）或改三仓 bridge 源码，
+  地形就地重建，**不用重启进程**。
+
+## 开发循环（日常怎么用）
+
+```bash
+python -m superengine.cli.dev                # 常驻：监听配置 + 三仓源码，自动重建
+python -m superengine.cli.dev --once         # 只构建一次
+python -m superengine.cli.dev --set backend flat    # 改配置（下一轮生效，走 M4 换实现）
+python -m superengine.cli.dev --status              # 看当前配置与默认值的差异
+```
+
+两条联动：
+
+| 改什么 | 走哪条 | 表现 |
+|---|---|---|
+| `configs/dev.json` 的 `backend` | **M4** | 实现热替换（clipmap ⇄ flat），消费方代码不动 |
+| 三仓 bridge 源码 | **M3** | 底层模块重导 + entry fiber 换新，registry 规模不增长 |
+| `seed` / `tile_m` / 网格参数 | 重建 | 地形随之变化，同参数结果一致 |
+
+输出形如：`[backend→flat, rebuild] backend=flat verts=289 h=0.000~0.000 registry=10`
+
+**诚实边界**：Python `importlib` 不会重绑定其他模块已持有的引用，所以只保证
+「三仓 bridge 接口 + 本仓 entry」两层被真正换掉；改更深的**内部**模块建议重启会话。
+监听用轮询（默认 0.5s）而非后台线程 —— 确定性更好，也便于测试直接调 `tick()`。
 
 ## 许可
 

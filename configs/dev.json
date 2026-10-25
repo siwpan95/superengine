@@ -1,0 +1,8 @@
+{
+  "seed": 7,
+  "tile_m": 2.0,
+  "backend": "clipmap",
+  "levels": 4,
+  "grid": 16,
+  "base_cell": 2.0
+}
