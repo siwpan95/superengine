@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """装配层：按 `cordis.super.yml` 把三仓桥接成一张服务图，并做**装配期门禁**。
 
-三道门禁（对应规划文档 §2.7）
+三道门禁（见 docs/architecture/架构总览.md「三道装配门禁」、docs/quality/门禁标准.md）
 ------------------------------
 1. **白名单校验 entry name**：cordis 会把 entry 的 ``name`` 当模块名 import，
    等同于执行代码 —— 只放行 `superengine.bridges.*`（3dworld 既有同款门禁）。

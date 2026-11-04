@@ -63,7 +63,8 @@ class TdworldBridge(Service):
         表现层只消费 ``f(x, z) -> h``。
 
         全程同进程、不落盘；需要存档/跨进程时才走 worldspec 文件契约
-        （两条路径并存，见规划文档 §2.6-B）。
+        （两条路径并存，见 docs/architecture/ADR-003-文件契约与服务契约并存.md
+        与 docs/design/契约体系设计.md §2）。
         """
         hm = worldbuilder.heightfield(source)
         sampler = worldbuilder.make_height_sampler(hm, tile_m=tile_m)

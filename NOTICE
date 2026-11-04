@@ -1,0 +1,75 @@
+superengine — 来源与许可声明
+================================
+
+本仓库**代码**以 MIT 许可发布，全文见 LICENSE（Copyright (c) 2026 siwpan）。
+本文件说明**数据与第三方素材**的来源，二者适用不同的许可。
+
+本仓是**组合仓**：自身不含任何算法，只做契约 / 桥接 / 装配 / 门禁。
+所以它的许可声明要回答的不是「你用了什么」，而是
+「**装上本仓之后，间接用到的第三方数据是什么**」——
+组合仓的许可义务来自它把哪些仓接在了一起，而不来自它自己的代码。
+
+数据链条（谁把什么带到了分发物里）
+-----------------------------------
+    superengine（本仓，MIT）
+      └─ superengine/bridges/anengine_bridge.py
+           └─ 契约 rules_kernel
+                └─ an-engine / allin_engine（MIT）
+                     └─ allin_engine/trpg/（TRPG 规则数据）
+                          └─ SRD 5.1（CC-BY-4.0）派生数值与名称
+
+规则数值（武器伤害骰、护甲 AC、技能 / 种族 / 背景 / 专长名称等）
+经 an-engine 的 `rules_kernel` 契约**间接**进入本仓的运行期。
+本仓**不复制**这些表，但组合分发会把它们一并带出去———
+因此分发者必须履行 SRD 5.1 的署名义务。
+
+SRD 5.1（CC-BY-4.0）
+-----------------------------------
+This work includes material taken from the System Reference Document 5.1
+("SRD 5.1") by Wizards of the Coast LLC and available at
+https://dnd.wizards.com/resources/systems-reference-document.
+The SRD 5.1 is licensed under the Creative Commons Attribution 4.0
+International License available at
+https://creativecommons.org/licenses/by/4.0/legalcode.
+
+被引用的部分：武器伤害骰、护甲 AC 与敏调上限、技能 / 种族 / 背景 / 专长**名称**。
+其余点数阶梯、难度分级、公式与全部描述文本为 an-engine 自研。
+逐表登记（A 可溯源 / B 自研 / C 待复核三分法）见
+an-engine 的 `allin_engine/trpg/docs/数据来源.md`；
+本仓侧的对应入口是契约 `rules_kernel`（`superengine/contracts/protocols.py`）。
+
+分发义务（组合分发时适用）
+-----------------------------------
+* **必须**随分发物携带本文件——或 an-engine 的 `NOTICE`（二者内容一致，
+  本文件多一段「数据链条」的说明）。
+* **必须**逐字保留上面那段英文署名，**不得改写、不得截断、不得只留链接**。
+* **不得**暗示 Wizards of the Coast LLC 对本项目或分发物背书。
+* **条件**：若你修改或翻译了 SRD 派生数据，须在分发物里标注改动
+  （CC-BY-4.0 §3(a)(b) 要求署名 + 标注改动）。
+* 本仓**自身**的代码不含 SRD 派生数据，故单独分发本仓代码时，
+  上面的义务**不适用**；义务的触发条件是「组合分发」——
+  即把本仓与 an-engine 一起交付给使用者。
+
+关于 GURPS
+----------
+本项目与 Steve Jackson Games 无任何关联，未获其授权，也未复制其文本或表格。
+"点数制 / 难度分级 / 战斗机动"等属于通用规则设计概念，本项目为独立实现。
+"GURPS" 是其权利人商标，此处仅用于说明设计渊源（nominative use）。
+
+关于 RPG Maker / Unity / Godot 等引擎
+-------------------------------------
+本项目在设计与实现过程中参考了若干开源或公开文档的**语义与算法**，
+未复制其代码。逐项登记（来源、版本、许可、借用范围、落点）见各仓
+docs/借鉴记账.md；本仓为 an-engine/docs/借鉴记账.md。
+
+third-party 代码
+----------------
+本仓的运行期依赖声明在 pyproject.toml 与 requirements.txt：
+PyYAML（cordis 需要）、watchdog（cordis 的 Hmr 需要）、numpy（worldbuilder 侧需要），
+以及**装配路径实际会 import 到的 pyglet**（经 3dworld 的 bridge）。
+各依赖遵循其原有许可，本仓不重新分发其源码。
+
+本仓组合的 cordis 由 3dworld 以 vendor 形式携带（MIT，
+Copyright (c) 2024 Cordis Python Port Contributors，见
+3dworld/vendor/cordis/LICENSE）；本仓不重新分发其源码，
+只在装配期从 3dworld 侧引用。

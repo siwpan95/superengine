@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """an-engine 桥接：把玩法内核挂到 cordis 上（提供 `gameplay_world` + `mapgraph_source`）。
 
-**托管而非替换**（规划文档 §2.6-A）：
+**托管而非替换**（见 docs/design/契约体系设计.md「1.2 逐条职责边界」的 gameplay_world 条，与 README.md 里程碑 M2）：
 an-engine 的 ``core.context.Context`` 自述「源自 Cordis 三个算子」且**刻意零第三方依赖**。
 本桥接不把 cordis 塞进去替换它，而是**托管** —— 外层 cordis 负责生命周期与回滚，
 内层仍是它自己的 Context，零依赖与既有测试基线都不受影响。

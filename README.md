@@ -2,7 +2,7 @@
 
 ## 仓库角色定位（投资组合分级 ①）
 
-> 本仓在 siwpan 投资组合（D:/projects/repos，共 133 仓）中定级为 **① 核心推进**，领域 **游戏引擎/框架**，定位 **引擎平台层**。
+> 本仓在 siwpan 投资组合（根目录记作 `/projects/repos`，共 133 仓）中定级为 **① 核心推进**，领域 **游戏引擎/框架**，定位 **引擎平台层**。
 > **角色**：cordis 三仓组合流水线，随引擎层维护。
 > **维护策略**：① 核心推进——持续投入、不允许冻结；随所属收敛点 / 流水线长期演进。
 > 投资组合统一分级索引（多机可查）：[组合分级决策索引 · allin 事实源](https://gitee.com/siwpan/allin/blob/master/docs/事实源/组合分级决策索引.md)。
@@ -30,20 +30,21 @@
 ## 快速开始
 
 ```bash
-# 依赖：PyYAML、watchdog（cordis 自身需要）；cordis 可用 CORDIS_SRC 指向
-# 3dworld/vendor/cordis/src，或与三仓并排放置自动定位。
+# 依赖以 pyproject.toml 为单一事实来源（requirements.txt 通过 -e . 转发）：
+#   PyYAML / watchdog（vendored cordis 硬依赖）、numpy（worldbuilder）、
+#   pyglet==2.1.16（3dworld 经 mathkit 传递，只走纯 Python 的 pyglet.math）
+python scripts/bootstrap.py --check-only    # 一键核对：依赖 / 四仓 / cordis 就位
+python scripts/bootstrap.py --test          # 或：自动建 .venv 并跑全量回归
+
+# 三仓源码并排即可自动定位；不在并排位置时显式指路（路径不写死盘符）：
 export CORDIS_SRC=/path/to/3dworld/vendor/cordis/src
 export WORLDBUILDER_SRC=/path/to/worldbuilder
 export TDWORLD_SRC=/path/to/3dworld
 export ANENGINE_SRC=/path/to/an-engine
 
 python -m superengine.cli.boot --report     # 装配 + 门禁 + 契约版本报告
-python -m tests.test_assembly               # 装配门禁
-python -m tests.test_pipeline               # 三仓流水线（M1/M2）
-python -m tests.test_no_cross_import        # 三仓互不引用门禁
-python -m tests.test_live                   # M3 Hmr 热重载
-python -m tests.test_backends               # M4 Impl 多实现可替换
-python -m tests.run_tests                   # 以上五个模块聚合跑
+python -m tests.run_tests                   # 7 个模块聚合跑（见 docs/quality/回归基线.md）
+python -m superengine.cli.dev --once        # 开发循环单次（M3 + M4）
 ```
 
 装配产物（示意）：
@@ -63,10 +64,20 @@ superengine/
 ├── contracts/         # 跨仓契约（零依赖 Protocol）+ 独立版本号 + 区间校验
 ├── bridges/           # 唯一 import 三仓的地方（worldbuilder / 3dworld / an-engine）
 ├── assembly.py        # 装配：白名单 → 预导入 → Loader → 终态 ACTIVE 断言
-├── cli/boot.py        # headless 装配验证入口
+├── live.py            # M3 cordis Hmr 热重载
+├── devloop.py         # M3 + M4 接入日常开发循环
+├── cli/               # boot / dev 两个入口
 └── _locate.py         # cordis 与三仓路径解析（唯一处理路径的地方）
 configs/cordis.super.yml
-tests/                 # 三道门禁
+scripts/bootstrap.py   # 一键引导（--check-only / --test）
+tests/                 # 7 个模块：三道门禁 + 流水线 + M3/M4 + 开发循环 + 回归基线
+.github/workflows/ci.yml   # Windows / Linux headless / macOS 三平台六闸门
+docs/
+├── architecture/      # 架构总览 + 3 条 ADR + 已知风险与缓解 + 索引
+├── design/            # 契约体系设计 / 矩阵速查 / 新增契约流程 / 悬空引用处置 + 索引
+├── quality/           # 门禁标准 / 回归基线 / 测试覆盖审计 + 索引
+└── release/           # 版本策略 / 发布清单 / 发布流程 + 索引
+NOTICE · CHANGELOG.md
 ```
 
 ## 三道门禁（治 cordis 已记录的坑）
@@ -115,4 +126,20 @@ python -m superengine.cli.dev --status              # 看当前配置与默认�
 
 ## 许可
 
-MIT。组合分发时须一并携带 `an-engine` 的 `NOTICE`（SRD 5.1 / CC-BY-4.0 数据条款）。
+MIT。组合分发时须一并携带 `an-engine` 的 `NOTICE`（SRD 5.1 / CC-BY-4.0 数据条款）——
+本仓根 [`NOTICE`](NOTICE) 已把署名义务与传播链条写实，随包分发即可。
+
+## 文档与发布
+
+| 我想… | 看这里 |
+|---|---|
+| 新人跑起来 / 四仓 clone / 漂移核对 | [`docs/新人开发上手指南.md`](docs/新人开发上手指南.md) |
+| 理解四层架构与设计决策 | [`docs/architecture/README.md`](docs/architecture/README.md)（架构总览 + ADR 索引） |
+| 查 / 改跨仓契约 | [`docs/design/README.md`](docs/design/README.md) |
+| 判绿 / 看覆盖缺口 / 跑门禁 | [`docs/quality/README.md`](docs/quality/README.md) |
+| 发版 / 打 tag / 版本怎么动 | [`docs/release/README.md`](docs/release/README.md) · [`CHANGELOG.md`](CHANGELOG.md) |
+
+CI 三平台（Windows / Linux headless / macOS）定义见
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml)；**目前仅 Windows 在本机实测**，
+Linux/macOS 需远端 runner 跑过一轮后才算兑现（见
+[`docs/quality/测试覆盖审计.md`](docs/quality/测试覆盖审计.md) 缺口 G2）。
