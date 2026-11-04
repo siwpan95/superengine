@@ -1,0 +1,284 @@
+name: CI
+
+# superengine 是**组合仓**：本仓只做契约 / 桥接 / 装配 / 门禁，跑起来必须同时有
+# 三个兄弟仓源码（worldbuilder / an-engine / 3dworld）与 vendored cordis。
+# 所以本 CI 的核心不是「装依赖跑测试」，而是：
+#
+#   1) **clean clone + 四仓并排**之后能不能跑（P0：环境可复现）
+#   2) **不设 CORDIS_SRC** —— 强制走 vendored cordis 的自动回退路径，
+#      一旦有人把接线改回「必须手工设置」就会在这里红掉
+#   3) 装配真的成了才算数：断言 SUPERENGINE_BOOT_OK / SUPERENGINE_DEV_OK
+#      出现在输出里，而不是只看退出码（退出 0 却没打出这行 = 装配没真成）
+#
+# 2026-11-04 新增。此前本仓零 CI，而兄弟仓 3dworld / an-engine 都已有 CI。
+# 同一批工作里定位到：requirements.txt 漏声明 pyglet ⇒ 干净机装完依赖后
+# boot 直接 ModuleNotFoundError，6 个测试模块只有 1 个能过 —— 这类缺陷
+# **只有「干净机 clone」这条路径能发现**，本机 venv 里跑绿是发现不了的。
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  # 本机到 GitHub 的直连可用性是时点事实（实测过通、也实测过断）。
+  # 本仓靠 Gitee「仓库镜像管理」从服务器侧推到 GitHub，最短间隔 5 分钟。
+  # 留手动入口，方便镜像同步前先单独把三个 job 跑一遍看结果。
+  workflow_dispatch:
+
+# 放在 workflow 级而不是逐 step 加：
+# Windows runner 控制台默认 cp1252，而本仓所有输出都是中文。
+# `python -c "…"` 这种一行式命令没有 `_force_utf8_stdout()` 兜底，
+# 在 cp1252 下会直接 UnicodeEncodeError 退出 1（3dworld CI 2026-10-29 实测），
+# 于是「依赖自检」那一步永远红，而失败原因和依赖本身毫无关系。
+# 下一个写一行式命令的人不会记得逐 step 加，所以放全局。
+env:
+  PYTHONIOENCODING: 'utf-8'
+  PYTHONUTF8: '1'
+
+jobs:
+  # ---------------------------------------------------------------- Windows --
+  # 主战场：开发与验收都在 Windows 上完成。能开真窗口，是「发布口径」的回归。
+  regression-windows:
+    name: Windows · 全量回归
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: superengine
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: superengine
+
+      - name: 拉取三个兄弟仓（四仓必须同级并排）
+        uses: actions/checkout@v4
+        with:
+          repository: siwpan95/worldbuilder
+          ref: master
+          path: worldbuilder
+      - uses: actions/checkout@v4
+        with:
+          repository: siwpan95/an-engine
+          ref: master
+          path: an-engine
+      - uses: actions/checkout@v4
+        with:
+          repository: siwpan95/3dworld
+          ref: master
+          path: 3dworld
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 四仓布局校验（并排是 _locate.py 的定位依据）
+        run: |
+          ls -d ../superengine ../worldbuilder ../an-engine ../3dworld
+          ls -d ../worldbuilder/worldbuilder ../an-engine/allin_engine ../3dworld/world3d
+          ls -d ../3dworld/vendor/cordis/src/cordis
+
+      - name: 安装运行时依赖
+        # requirements.txt 已收敛为 `-e .` 转发，pyproject.toml 是唯一事实来源。
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: 依赖自检（**不重复安装**，断言 -r 这条链真的把依赖带进来了）
+        # 2026-11-04：pyglet 曾被漏声明 —— world3d.bridge → engine.mathkit
+        # 顶层 import pyglet.math，于是干净机 boot 直接炸。
+        # 这里不写 `pip install pyglet`（那会成为第二份清单），而是**断言**
+        # `pip install -r requirements.txt` 真的把它带进来了。
+        run: |
+          python -c "import yaml, watchdog, numpy, pyglet, platform; print('deps ok:', platform.python_version(), 'numpy', numpy.__version__, 'pyglet', pyglet.version)"
+
+      - name: 验证 vendored cordis 自动接线（**不设 CORDIS_SRC**）
+        run: python scripts/bootstrap.py --check-only
+
+      - name: 契约层无头自检（不依赖 cordis / 三仓）
+        run: python selfcheck.py
+
+      - name: 装配门禁（断言成功标记，不只看退出码）
+        run: |
+          python -m superengine.cli.boot --report | tee boot.log
+          grep -q "SUPERENGINE_BOOT_OK" boot.log
+
+      - name: 全量回归（6 模块）
+        run: python -m tests.run_tests
+
+      - name: 开发循环构建一次（M3 + M4 接入日常）
+        run: |
+          python -m superengine.cli.dev --once | tee dev.log
+          grep -q "SUPERENGINE_DEV_OK" dev.log
+
+  # ------------------------------------------------------------------ Linux --
+  # 「别人 clone 下来第一件事」：没显示器、没显卡驱动还能不能跑。
+  #
+  # ⚠️ 这里**刻意不装** 3dworld CI 那套 X11/GL apt 清单。理由（2026-11-04 实测）：
+  #   pyglet 2.1.16 顶层 __init__.py 是懒加载，不含 app/gl 导入；
+  #   pyglet/math.py 只 import math/typing/warnings（纯标准库，无 ctypes、无 dlopen）；
+  #   完整装配链路实测只加载 ['pyglet', 'pyglet.math'] 两个子模块，
+  #   重量级模块（会拉 X11/GL）为 []。
+  #   3dworld CI 注释里「import pyglet 会无条件加载 xlib 事件循环」那条判断
+  #   对**渲染路径**成立，对**本仓装配路径**不成立。
+  # ⇒ 用精简版，并让 CI 自己证明；若 runner 上真红了，按 docs/quality/门禁标准.md
+  #   记录的回退路径补 apt 清单（那套清单是从 pyglet 源码里读出来的，不是猜的）。
+  regression-linux:
+    name: Linux · 无显示回归
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: superengine
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: superengine
+      - uses: actions/checkout@v4
+        with:
+          repository: siwpan95/worldbuilder
+          ref: master
+          path: worldbuilder
+      - uses: actions/checkout@v4
+        with:
+          repository: siwpan95/an-engine
+          ref: master
+          path: an-engine
+      - uses: actions/checkout@v4
+        with:
+          repository: siwpan95/3dworld
+          ref: master
+          path: 3dworld
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 四仓布局校验
+        run: |
+          ls -d ../superengine ../worldbuilder ../an-engine ../3dworld
+          ls -d ../3dworld/vendor/cordis/src/cordis
+
+      - name: 安装运行时依赖（精简版，不装 X11/GL 系统库）
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: 依赖面探测（**证据 step**：证明本仓不需要 X11/GL）
+        # 打印装配链路实际加载的 pyglet 子模块。若这里出现 app/gl/window，
+        # 说明假设被推翻，下一步 `import world3d.bridge` 大概率会炸。
+        run: |
+          PYTHONPATH="../3dworld:../worldbuilder:../an-engine" python -c "
+          import sys
+          before = set(sys.modules)
+          import world3d.bridge
+          new = sorted(m for m in set(sys.modules) - before if m.startswith('pyglet'))
+          heavy = [m for m in new if any(m.startswith('pyglet.' + k) for k in ('app','gl','window','display','input','font'))]
+          print('pyglet submodules loaded:', new)
+          print('heavy (X11/GL) modules:', heavy)
+          assert not heavy, 'pyglet 拉进了重量级模块，需回退到 apt 清单'
+          "
+
+      - name: 依赖自检
+        run: python -c "import yaml, watchdog, numpy, pyglet; print('deps ok')"
+
+      - name: vendored cordis 自动接线（不设 CORDIS_SRC）
+        run: python scripts/bootstrap.py --check-only
+
+      - name: 契约层无头自检
+        run: python selfcheck.py
+
+      - name: 装配门禁
+        run: |
+          python -m superengine.cli.boot --report | tee boot.log
+          grep -q "SUPERENGINE_BOOT_OK" boot.log
+
+      - name: 全量回归（6 模块）
+        run: python -m tests.run_tests
+
+      - name: 开发循环构建一次
+        run: |
+          python -m superengine.cli.dev --once | tee dev.log
+          grep -q "SUPERENGINE_DEV_OK" dev.log
+
+  # ------------------------------------------------------------------ macOS --
+  # 全哥点名要覆盖。pyglet 在 macOS 走 Cocoa/AGL，无 X11；
+  # 但既然本仓只用 pyglet.math（纯 Python），macOS 大概率比 Linux 还干净。
+  #
+  # ⚠️ **诚实边界**：本机是 Windows，无法预验 macOS / Linux runner。
+  #   本机已实测的是「pyglet.math 的导入面」，不是「runner 上完整链路通过」。
+  #   若 macOS job 红了，先看上面「依赖面探测」step 的输出与真实异常，
+  #   别直接判定「macOS 不支持」—— 时点事实要以 CI 输出为准。
+  regression-macos:
+    name: macOS · 兼容性回归
+    runs-on: macos-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: superengine
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: superengine
+      - uses: actions/checkout@v4
+        with:
+          repository: siwpan95/worldbuilder
+          ref: master
+          path: worldbuilder
+      - uses: actions/checkout@v4
+        with:
+          repository: siwpan95/an-engine
+          ref: master
+          path: an-engine
+      - uses: actions/checkout@v4
+        with:
+          repository: siwpan95/3dworld
+          ref: master
+          path: 3dworld
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 四仓布局校验
+        run: |
+          ls -d ../superengine ../worldbuilder ../an-engine ../3dworld
+          ls -d ../3dworld/vendor/cordis/src/cordis
+
+      - name: 安装运行时依赖
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: 依赖面探测
+        run: |
+          PYTHONPATH="../3dworld:../worldbuilder:../an-engine" python -c "
+          import sys
+          before = set(sys.modules)
+          import world3d.bridge
+          new = sorted(m for m in set(sys.modules) - before if m.startswith('pyglet'))
+          heavy = [m for m in new if any(m.startswith('pyglet.' + k) for k in ('app','gl','window','display','input','font'))]
+          print('pyglet submodules loaded:', new)
+          print('heavy (X11/GL) modules:', heavy)
+          assert not heavy, 'pyglet 拉进了重量级模块'
+          "
+
+      - name: 依赖自检
+        run: python -c "import yaml, watchdog, numpy, pyglet; print('deps ok')"
+
+      - name: vendored cordis 自动接线（不设 CORDIS_SRC）
+        run: python scripts/bootstrap.py --check-only
+
+      - name: 契约层无头自检
+        run: python selfcheck.py
+
+      - name: 装配门禁
+        run: |
+          python -m superengine.cli.boot --report | tee boot.log
+          grep -q "SUPERENGINE_BOOT_OK" boot.log
+
+      - name: 全量回归（6 模块）
+        run: python -m tests.run_tests
+
+      - name: 开发循环构建一次
+        run: |
+          python -m superengine.cli.dev --once | tee dev.log
+          grep -q "SUPERENGINE_DEV_OK" dev.log
