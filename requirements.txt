@@ -1,7 +1,32 @@
-PyYAML
-watchdog
-numpy
-# cordis：本仓不 vendor 它。pip 无官方发行时，用环境变量指向源码目录：
-#   CORDIS_SRC=<3dworld>/vendor/cordis/src
-# 三仓源码定位（未 pip 安装时用）：
-#   WORLDBUILDER_SRC / TDWORLD_SRC / ANENGINE_SRC
+# superengine 运行时依赖 —— **以 pyproject.toml 为单一事实来源**
+#
+# 本文件已改为「转发」：装上本项目自身，即等于装上它的全部运行依赖。
+# `-e .` 与 `pip install -e .` 等价；保留本文件是为了兼容既有文档与 CI 里
+# `pip install -r requirements.txt` 这条调用链（见 docs/新人开发上手指南.md）。
+#
+# ⚠️ 为什么改：此前 requirements.txt 与 pyproject.toml 是**两份清单**，必然漂移。
+#    2026-11-04 实测踩到：两份清单都漏了 `pyglet`，而装配路径
+#      tdworld_bridge → world3d.bridge → world3d/__init__.py
+#        → from world3d.engine import * → engine/mathkit.py → pyglet.math
+#    是硬依赖。干净机按 README 装完依赖后 `boot` 直接
+#    `ModuleNotFoundError: No module named 'pyglet'`，6 个测试模块只有 1 个能过。
+#    这与 3dworld 在 2026-10-29 记录过的「numpy 漏声明」是同一类病。
+#    一份清单不会自动变对，但至少**只可能错一处**，且门禁能一次性断言全。
+#
+# 依赖归属（写在这里是为了让「为什么组合仓要声明兄弟仓的依赖」可查）：
+#   PyYAML / watchdog —— vendored cordis 的硬依赖（上游标 optional extra，实为硬依赖：
+#                        cordis/__init__.py 无条件 from .hmr import Hmr，hmr.py 顶层 import yaml，
+#                        且模块级把可能为 None 的 FileSystemEventHandler 当基类用）。
+#   numpy           —— worldbuilder 侧（worldbuilder/noise.py 顶层 import）。
+#   pyglet==2.1.16  —— 3dworld 侧，经 bridge 传递进来（见上方链路）。
+#                        锁版本对齐 3dworld 的 pyproject.toml；
+#                        superengine 只用到 `pyglet.math`（纯 Python，无 ctypes / 无 GL 上下文），
+#                        详见 docs/architecture/已知风险与缓解.md。
+#
+# 三仓源码定位（**不是 pip 依赖**，pip 装不到它们）：
+#   cordis —— 无 pip 发行，随 3dworld vendored 在 3dworld/vendor/cordis/src；
+#             或设 CORDIS_SRC 指向源码目录。
+#   worldbuilder / an-engine / 3dworld —— 与本仓并排放置，或设
+#             WORLDBUILDER_SRC / ANENGINE_SRC / TDWORLD_SRC 指向各自根目录。
+#             解析逻辑见 superengine/_locate.py（唯一处理路径的地方）。
+-e .

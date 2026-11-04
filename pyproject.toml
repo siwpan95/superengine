@@ -8,7 +8,19 @@ version = "0.1.0"
 description = "基于 cordis 的三仓组合仓（worldbuilder / an-engine / 3dworld）：契约 + 桥接 + 装配 + 门禁"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-dependencies = ["PyYAML", "watchdog", "numpy"]
+# 单一事实来源：requirements.txt 通过 `-e .` 转发到这里，不要再维护第二份清单。
+# 归属与推理链见 requirements.txt 头部注释。
+dependencies = [
+  # vendored cordis 的硬依赖（上游标 optional extra，实为硬依赖）。
+  "PyYAML>=6.0,<7",
+  "watchdog>=4.0,<7",
+  # worldbuilder / 3dworld 的 bridge 在顶层 import，随组合分发必须装上。
+  "numpy>=2.0",
+  # 3dworld 侧传递依赖：world3d.bridge → world3d.engine.mathkit → pyglet.math。
+  # 锁版本对齐 3dworld 的 pyproject.toml（它有 requirements-pyglet1x.txt 做 cocos2d 兼容备用路线）。
+  # superengine 只走 pyglet.math（纯 Python），不进 GL / 窗口路径。
+  "pyglet==2.1.16",
+]
 
 [tool.setuptools]
 packages = ["superengine", "superengine.contracts", "superengine.bridges", "superengine.cli"]
