@@ -9,8 +9,13 @@
 缺任何一件，症状都长得不一样，而且**报错信息会误导**：
 
 * 缺 `pyglet` ⇒ `RepoNotFound: 仓 '3dworld' 缺少 bridge 接口模块`
-  （真实原因是 `world3d.engine.mathkit` 顶层 `from pyglet.math import ...` 失败，
-  被 `_locate.py` 的 `ImportError` 兜底包成了「找不到仓」）。
+  （真实原因是 3dworld 侧 pyglet 的**两个并列顶层入口**之一在 import 期失败：
+  `world3d/engine/mathkit.py:19` 的 `from pyglet.math import Mat4, Vec3`（首个失败点），
+  以及 `world3d/engine/timeline.py:21` 的 `from pyglet.math import Quaternion, Vec3`；
+  两者都挂在 `world3d/engine/__init__.py` 的无条件导入下 —— 只改一处摘不掉 pyglet。
+  详见 `docs/architecture/ADR-004-依赖声明单一事实来源与锁版.md`
+  与 `docs/architecture/已知风险与缓解.md §1`。
+  这个真实原因被 `_locate.py` 的 `ImportError` 兜底包成了「找不到仓」）。
 * 缺 `numpy` ⇒ 同样被报成「仓 'worldbuilder' 缺少 bridge 接口模块」。
 * 少了某个兄弟仓 ⇒ fiber 停在 PENDING，cordis 不报错、只一直等，进程可能静默退出。
 
@@ -22,7 +27,7 @@
 -------------------------------------------------------------------
     python scripts/bootstrap.py               # 建 .venv + 装依赖 + 校验四仓 + 自检
     python scripts/bootstrap.py --check-only  # 只体检，不装东西（CI / 排障用）
-    python scripts/bootstrap.py --test        # 自检之外再跑全量 6 模块测试
+    python scripts/bootstrap.py --test        # 自检之外再跑 `tests.run_tests` 全量回归
     python scripts/bootstrap.py --python PY   # 指定建 venv 用的解释器
 
 设计约束

@@ -9,8 +9,14 @@
 
 这批断言的由来（2026-11-04 事故驱动）：
 `requirements.txt` 与 `pyproject.toml` 两份清单**都漏了 pyglet**，而装配路径
-  tdworld_bridge → world3d.bridge → world3d/engine/mathkit.py → pyglet.math
-是硬依赖。干净机按 README 装完依赖后 `boot` 直接
+  tdworld_bridge → world3d.bridge → world3d/engine/{mathkit,timeline}.py → pyglet.math
+是硬依赖。pyglet 在 3dworld 侧有**两个并列的顶层入口**：
+`mathkit.py:19` 的 `from pyglet.math import Mat4, Vec3`（首个失败点）与
+`timeline.py:21` 的 `from pyglet.math import Quaternion, Vec3`，两者都挂在
+`world3d/engine/__init__.py` 的无条件导入下 —— 只改一处摘不掉 pyglet。
+详见 `docs/architecture/ADR-004-依赖声明单一事实来源与锁版.md`
+与 `docs/architecture/已知风险与缓解.md §1`。
+干净机按 README 装完依赖后 `boot` 直接
 `ModuleNotFoundError: No module named 'pyglet'`，6 个测试模块只有 1 个能过。
 本机 venv 里装着 pyglet 时全绿 —— **本机跑绿发现不了这类缺陷**。
 
@@ -44,6 +50,23 @@ EXPECTED_CONTRACTS = {
     "render_sink": "1.0.0",
     "dungeon_source": "1.0.0",
     "rules_kernel": "1.0.0",
+}
+
+#: 每个契约 Protocol 的**方法名集合快照**。
+#: 加方法 / 改方法名 / 删方法都必须同步改这里 —— 让「悄悄改了契约形状」变成一个
+#: 需要显式确认的动作（详见 测试覆盖审计.md G6 / 已知风险与缓解.md §3）。
+#: 第一道机械闸门：单边给 Protocol 加 / 删 / 改名方法（却不改快照、不升 CONTRACT_VERSIONS）
+#: 会立刻红。协同加方法（Protocol + 提供方同步加、但忘升版本）由装配期 `check_all`
+#: 的「版本不在区间」拦截，不归本快照管。
+EXPECTED_METHODS = {
+    "worldspec_source": {"generate", "save", "load", "validate_spec", "meta"},
+    "terrain_source": {"heightfield", "make_height_sampler"},
+    "mapgraph_source": {"mapgraph_from_worldspec", "route", "nearest"},
+    "gameplay_world": {"new_context", "provide_mapgraph"},
+    "terrain_sink": {"clipmap_config", "terrain_mesh"},
+    "render_sink": {"terrain_from_heightfield"},
+    "dungeon_source": {"generate_dungeon", "dungeon_graph", "grammar_names"},
+    "rules_kernel": {"roll_dice", "roll_d20", "roll_3d6", "success_chance"},
 }
 
 #: 发行名 → 实际 import 名（PyYAML 是唯一的例外）
@@ -100,14 +123,27 @@ def test_protocols_are_runtime_checkable_and_methods_only():
 
 
 def test_protocol_methods_are_declared():
-    """每个契约至少声明了方法（空 Protocol 会让结构校验形同虚设）。"""
+    """每个契约的方法名集合必须与 EXPECTED_METHODS 快照**逐字节一致**。
+
+    这是「形状真空」的第一道机械闸门：单边给 Protocol 加 / 删 / 改名方法
+    （却不改快照、不升 CONTRACT_VERSIONS）会立刻红。协同加方法
+    （Protocol + 提供方同步加、但忘升版本）仍由装配期 check_all 的
+    「版本不在区间」拦截，不归本断言管 —— 见 测试覆盖审计.md G6。
+    """
     for name, proto in CONTRACTS.items():
-        methods = [
+        methods = {
             k for k, v in vars(proto).items()
             if not k.startswith("_") and callable(v)
-        ]
-        assert methods, f"契约 {name} 没有声明任何方法"
-    print("  ok: 每个契约都声明了方法（结构校验有效）")
+        }
+        assert name in EXPECTED_METHODS, (
+            f"契约 {name} 未在 EXPECTED_METHODS 登记；"
+            "新增契约时同步在 tests/test_baseline.py 登记方法名集合。")
+        assert methods == EXPECTED_METHODS[name], (
+            f"契约 {name} 方法名集合与快照不一致：\n"
+            f"  实际 {sorted(methods)}\n"
+            f"  快照 {sorted(EXPECTED_METHODS[name])}\n"
+            "若是有意改形状，同步更新 EXPECTED_METHODS 并按新增契约流程升版本。")
+    print(f"  ok: {len(EXPECTED_METHODS)} 个契约方法名集合与快照一致（形状真空已锁）")
 
 
 # --------------------------------------------------------------- 依赖基线 ----
@@ -152,9 +188,11 @@ def test_pyglet_is_declared():
     names = {_dep_names(s) for s in data["project"]["dependencies"]}
     assert "pyglet" in names, (
         "pyglet 未声明 —— 装配路径 "
-        "tdworld_bridge → world3d.bridge → world3d/engine/mathkit.py → pyglet.math "
-        "是硬依赖。漏了它，干净机 boot 直接 ModuleNotFoundError。\n"
-        "详见 docs/architecture/已知风险与缓解.md §1。")
+        "tdworld_bridge → world3d.bridge → "
+        "world3d/engine/mathkit.py:19 + world3d/engine/timeline.py:21 → pyglet.math "
+        "是硬依赖（两个并列的顶层入口，都挂在 engine/__init__.py 无条件导入下，"
+        "只改一处摘不掉）。漏了它，干净机 boot 直接 ModuleNotFoundError。\n"
+        "详见 docs/architecture/已知风险与缓解.md §1 与 ADR-004。")
     print("  ok: pyglet 已在依赖清单中（专项回归）")
 
 

@@ -101,7 +101,7 @@ jobs:
           python -m superengine.cli.boot --report | tee boot.log
           grep -q "SUPERENGINE_BOOT_OK" boot.log
 
-      - name: 全量回归（6 模块）
+      - name: 全量回归（8 模块）
         run: python -m tests.run_tests
 
       - name: 开发循环构建一次（M3 + M4 接入日常）
@@ -191,7 +191,7 @@ jobs:
           python -m superengine.cli.boot --report | tee boot.log
           grep -q "SUPERENGINE_BOOT_OK" boot.log
 
-      - name: 全量回归（6 模块）
+      - name: 全量回归（8 模块）
         run: python -m tests.run_tests
 
       - name: 开发循环构建一次
@@ -275,7 +275,7 @@ jobs:
           python -m superengine.cli.boot --report | tee boot.log
           grep -q "SUPERENGINE_BOOT_OK" boot.log
 
-      - name: 全量回归（6 模块）
+      - name: 全量回归（8 模块）
         run: python -m tests.run_tests
 
       - name: 开发循环构建一次

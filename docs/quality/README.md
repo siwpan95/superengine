@@ -18,7 +18,7 @@
 ```bash
 python scripts/bootstrap.py --check-only     # 四仓 / cordis / 依赖 就位
 python selfcheck.py                          # 契约层无头自检
-python -m tests.run_tests                    # 7 模块 / ALL_TESTS_PASSED
+python -m tests.run_tests                    # 8 模块 / ALL_TESTS_PASSED
 python -m superengine.cli.boot --report      # 5 fiber ACTIVE + SUPERENGINE_BOOT_OK
 python -m superengine.cli.dev --once         # registry=10 + SUPERENGINE_DEV_OK
 ```

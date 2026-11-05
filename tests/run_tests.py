@@ -24,6 +24,9 @@ MODULES = [
     # 声明面 / 契约面基线：不依赖 cordis 与三仓，可在干净机上只装完依赖就跑。
     # 防的是「本机 venv 全绿、干净机却跑不起来」这类漏声明问题（2026-11-04 pyglet 事故）。
     ('tests.test_baseline', 'ALL_BASELINE_TESTS_PASSED', '回归基线（契约快照 / 依赖声明 / 零依赖边界）'),
+    # G1：render_sink 此前是 8 个契约里唯一没有端到端断言的（只出现在
+    # isinstance 与快照里）。独立成模块，让「G1 已闭环」在输出里可单独判定。
+    ('tests.test_render_sink', 'ALL_RENDER_SINK_TESTS_PASSED', 'render_sink 端到端（高程阵列 → 装配 → 网格）'),
 ]
 
 

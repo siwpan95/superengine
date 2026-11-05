@@ -140,6 +140,7 @@ MIT。组合分发时须一并携带 `an-engine` 的 `NOTICE`（SRD 5.1 / CC-BY-
 | 发版 / 打 tag / 版本怎么动 | [`docs/release/README.md`](docs/release/README.md) · [`CHANGELOG.md`](CHANGELOG.md) |
 
 CI 三平台（Windows / Linux headless / macOS）定义见
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml)；**目前仅 Windows 在本机实测**，
-Linux/macOS 需远端 runner 跑过一轮后才算兑现（见
-[`docs/quality/测试覆盖审计.md`](docs/quality/测试覆盖审计.md) 缺口 G2）。
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml)；**2026-11-05 三平台 runner 已全部跑绿**
+（GitHub Actions run `41915638126`，三 job `completed / success`），
+`v0.1.0` 打 tag 时豁免的 runner 前置已补验兑现（见
+[`docs/quality/测试覆盖审计.md`](docs/quality/测试覆盖审计.md) §4）。

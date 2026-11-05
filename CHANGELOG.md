@@ -12,14 +12,56 @@
 
 ## [Unreleased]
 
-（尚无代码条目；以下为发布状态补记，非功能变更。）
+### Changed / Added（2026-11-05 汇编，未打新 tag，HEAD 由 `b294a58` 推进）
+
+- **全量回归由 7 模块扩到 8 模块（56 测试函数 / 112 行 `ok:` / `ALL_TESTS_PASSED`）**。
+  新增 `tests/test_render_sink.py` 闭环 **G1**：真实高程阵列 → cordis 装配出的
+  `ctx.tdworld` → `RenderSink.terrain_from_heightfield` → clipmap 网格，含缺方法提供方被
+  `check_provider` 拒、5 参数透传、与 `terrain_sink` 几何一致，以及「`height_scale` 丢则红」变异体
+  （纯 headless，不建窗口）。`tests/run_tests.py` 的 `MODULES` 表新增第 8 项。
+- **G6 形状真空的 Protocol 侧机械闭环**：`tests/test_baseline.py` 新增 `EXPECTED_METHODS`
+  快照，`test_protocol_methods_are_declared` 改为**逐字节比对**每个 Protocol 的方法名集合，
+  单边加 / 删 / 改名方法立刻红（已用「注入 `new_experimental_method`」变异体实测：断言翻红、RC=1）。
+  协同加方法（Protocol + 提供方同步加、但忘升 `CONTRACT_VERSIONS`）仍由装配期 `check_all`
+  的「版本不在区间」拦截——属版本闸门职责，不重复建设。
+- **`test_assembly.py` 新增 3 条契约名 / 版本区间双向联动断言**（三仓声明契约名都在注册表、
+  注册表版本落在区间、无孤儿契约），并把「三仓缺失仍报 `..._PASSED` 的 skip 假绿面」改为
+  `ALL_ASSEMBLY_TESTS_INCOMPLETE` + 退出码 1（方案 A，最严）。
+- **文档一致性收敛（设计 / 架构 / 发布 / 质量四面）**：两类静默真空、ADR-004 锁版判据、
+  双 hash 消歧、7/7↔8/8 失效条款、`新人开发上手指南` pyglet / 三平台 CI 两处残留全部纠偏；
+  `ci.yml` 三处「全量回归（7 模块）」改 8 模块。
+- **`v0.1.0` tag 不移动**：仍指向 `51400e9`（tag 对象 `daaaf56`），7/7 为其发布时点历史快照；
+  本汇编提交后 HEAD 为 8/8，发版记录与门禁判据分层，互不回填。
 
 - **2026-11-04 收尾 · `v0.1.0` 已打出**：`master` 由 `a5fc431` 推进 6 笔至
   `51400e9` 并推送 `origin`；`v0.1.0` annotated tag（对象 `daaaf56`）已推送，
-  `git ls-remote` 复核一致。GitHub 端为 Gitee 服务器侧异步镜像，稍后自同步。
-  **已知缺口（P1，发布后补验）**：三平台 CI 的 Linux headless / macOS runner
+  `git ls-remote` 复核一致。原记为「GitHub 端为 Gitee 服务器侧异步镜像，稍后自同步」，
+  **该判断已于 2026-11-05 证伪**（见下一条补记），此处保留仅为事实流水。
+  **当时缺口（P1，发布后补验）**：三平台 CI 的 Linux headless / macOS runner
   尚未实跑；本 tag 经主理人明确放行豁免「runner 验证闭环」前置，tag 消息内已留痕。
   **该补记不改动 tag 指向** —— `v0.1.0` 仍指向 `51400e9`。
+  > **两个 hash 各指一层，不是矛盾**：`v0.1.0` 是 **annotated tag**，
+  > `daaaf56` 是 **tag 对象 hash**（`git rev-parse v0.1.0` / `git ls-remote --tags` 显示的值），
+  > `51400e9` 是 `v0.1.0^{}` 解引用后的**目标 commit**（`git rev-list -n1 v0.1.0`）。
+  > 下文「tag 均 `daaaf56`」讲的是远端 ref 同步，与此处讲内容/门禁的 `51400e9` 不冲突；
+  > 汇编时**不要统一成同一个 hash**。详见 [`docs/release/发布清单.md`](docs/release/发布清单.md) §5。
+
+- **2026-11-05 复核 · 镜像链路纠偏与三平台 CI 闭环**：
+  上一条补记里「GitHub 端为 Gitee 服务器侧异步镜像，稍后自同步」**经实测证伪**。
+  `api.github.com` 显示 `siwpan95/superengine` 的 `pushed_at` 停在 **2026-10-29**、
+  7 天未同步，`v0.1.0` tag 与 `.github/workflows/ci.yml` 均不存在，
+  `actions/runs` 为 `total_count: 0` —— 不是「Linux/macOS 没跑」，而是**三个平台一次都没跑过**。
+  ⇒ 根因是 Gitee「仓库镜像管理」未生效，不是「异步窗口」。
+  经主理人按铁律 3 报备并放行后改为 **SSH 直推 GitHub**：
+  `git push github master`（`a5fc431..b294a58`，7 笔）+ `git push github v0.1.0`；
+  `git ls-remote` 复核两端 `master` 均 `b294a58`、tag 均 `daaaf56` ⇒ **IN_SYNC**。
+  随后 GitHub Actions run [`41915638126`](https://github.com/siwpan95/superengine/actions/runs/41915638126)
+  触发，`ubuntu-latest` / `macos-latest` / `windows-latest` 三 job 全部 `completed / success`，
+  所有 step 通过，含 Linux「依赖面探测（证明本仓不需要 X11/GL）」证据 step。
+  ⇒ **G2 / G11 闭环**；`v0.1.0` 曾豁免的「runner 验证闭环」前置**已补验兑现**。
+  ⇒ 下文 `[0.1.0]` 条及发布面文档里「待 runner 验证」「仅 Windows 实测」
+  「镜像稍后自同步」「最短间隔 5 分钟」等表述均为 **2026-11-04 时点状态**，已被本条覆盖，
+  保留仅作事实流水与排障知识，不代表当前状态。
 
 ## [0.1.0] - 2026-11-04
 
@@ -112,8 +154,8 @@
   bootstrap → selfcheck → 装配 + 全量回归 + `dev --once`）。
 
 - **回归基线测试 `tests/test_baseline.py`**（本次随 0.1.0 补入，9 个测试函数）。
-  把契约注册表快照、Protocol 方法集合、依赖声明单一来源、入口文件存在性、
-  `contracts/` 零第三方依赖固化成断言；全量聚合从 6 模块扩到 **7 模块**。
+  把契约注册表快照（契约名 + 版本号）、每个 `Protocol` 至少声明方法且只含方法、
+  依赖声明单一来源、入口文件存在性、`contracts/` 零第三方依赖固化成断言；全量聚合从 6 模块扩到 **7 模块**。
   **对使用者而言：「本机 venv 全绿、干净机跑不起来」这类漏声明问题以后在 CI 里就会红**。
 
 - **架构 / 设计 / 质量三层文档**（本次随 0.1.0 补入，共 15 份）：
@@ -166,10 +208,16 @@
   `原始错误：No module named 'pyglet'`，会把排障方向带偏。**保留这条索引**是为了让下次
   遇到同类 `RepoNotFound` 的人**先读 `原始错误` 那一段**；当前状态：`pyproject.toml`
   已声明、`test_baseline` 机械守卫、干净机可跑。
+  ⚠️ **诚实边界**：本轮修的是**依赖声明漏项**，不是运行时报错措辞——
+  `scripts/bootstrap.py` 在**引导期**已把「依赖缺失 / 仓没找到」分开报，
+  但 `superengine/_locate.py` 的 `import_bridge` **运行时仍未区分**
+  `ModuleNotFoundError`（属运行时行为变更，留 full 评审后单独决策）。
+  别写成「误报已根治」。
 
-- **三平台 CI 已配置但仅 Windows 本机实测**：Linux headless / macOS 两个 job
+- **三平台 CI 已配置但仅 Windows 本机实测**（2026-11-04 时点）：Linux headless / macOS 两个 job
   需要远端 runner 跑过一轮，才能宣称「三平台全覆盖」。见
   `docs/quality/测试覆盖审计.md` 缺口 G2 / G11（**P1，发布前须处理**）。
+  ⇒ **2026-11-05 补验：三平台 runner 全部 success，G2 / G11 已闭环**（见 `[Unreleased]` 补记）。
 
 - **`render_sink` 契约无端到端测试**：8 个契约里唯一只有结构断言与快照、
   没被真跑过一条数据的备用路径。见 `docs/quality/测试覆盖审计.md` 缺口 G1（P2，已登记）。
@@ -177,9 +225,11 @@
 - **本机到 GitHub 的直连可用性是「时点事实」，不是恒定结论**：
   3dworld 的 CI 注释记录过直连断；本仓 release 面在 2026-11-04 另一次实测中
   `curl https://github.com` / `api.github.com` 返回 200、`ssh -T git@github.com` 认证成功。
-  两次结论相反 ⇒ **默认仍按「Gitee 镜像从服务器侧推、最短间隔 5 分钟」执行**
+  两次结论相反 ⇒ 2026-11-04 当时的处置是**默认按「Gitee 镜像从服务器侧推、最短间隔 5 分钟」执行**
   （不依赖本机网络的稳定路径），直连是否可用**每次发布前当场复核**；
   「两端远端都 IN_SYNC」要在镜像跑完后才复核得出来。
+  ⇒ **2026-11-05 实测证伪**：该镜像 7 天未生效（GitHub `pushed_at` 停在 2026-10-29、无 `v0.1.0`、无 `.github/workflows/ci.yml`、Actions `total_count: 0`），已改为 **SSH 直推 GitHub**（`git push github master` / `v0.1.0` 成功），`git ls-remote` 复核两端 `master` 均 `b294a58`、tag 均 `daaaf56` ⇒ **IN_SYNC**；随后 GitHub Actions run `41915638126` 三平台 job 全部 `completed / success`，**G2 / G11 闭环**，`v0.1.0` 曾豁免的「runner 验证闭环」前置已补验兑现。
+  ⇒ 镜像路径不再作为默认依赖；「GitHub 侧没看到」不可一律解释成延迟，须先查 `pushed_at` 判因。
 
 - **按中文路径过滤 git 输出必须带 `-c core.quotepath=false`**：
   否则非 ASCII 文件名被转义成 `"\347\233\256..."`，按名字过滤**恒假**，

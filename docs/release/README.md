@@ -8,10 +8,15 @@
 > `requirements.txt` 改为 `-e .` 转发到单一事实来源，并由
 > `tests/test_baseline.py` 机械守卫；新增 `scripts/bootstrap.py` 一键引导与
 > `.github/workflows/ci.yml` 三平台 CI；全量回归由 `6/6`（72 项）变为
-> **`7/7`（45 测试函数 / 90 行 `ok:`）**。
+> **`7/7`（45 测试函数 / 90 行 `ok:`，`v0.1.0` tag 时点）**；当前 HEAD 经 2026-11-05 汇编已为 **`8/8`**（见 版本策略.md）。
 > ⇒ 由此解除「依赖补全前不打 `v0.1.0` tag」这一前置；但打 tag 仍需
 > [`发布清单.md`](发布清单.md) P0 全项通过 + 主理人放行。下文涉及旧数字处已同步，
 > 保留的踩坑记录仅作排障知识，不代表当前状态。
+>
+> **状态更新（2026-11-05，镜像纠偏 + 三平台 CI 闭环）**：`v0.1.0` 已打出；
+> **2026-11-05 实测证伪**：该镜像 7 天未生效（GitHub `pushed_at` 停在 2026-10-29、无 `v0.1.0`、无 `.github/workflows/ci.yml`、Actions `total_count: 0`），已改为 **SSH 直推 GitHub**（`git push github master` / `v0.1.0` 成功），`git ls-remote` 复核两端 `master` 均 `b294a58`、tag 均 `daaaf56` ⇒ **IN_SYNC**；随后 GitHub Actions run `41915638126` 三平台 job 全部 `completed / success`，**G2 / G11 闭环**，`v0.1.0` 曾豁免的「runner 验证闭环」前置已补验兑现。
+> ⇒ 下文「③ GitHub 侧不是立刻可见的」「仅 Windows 本机实测」「镜像最短 5 分钟」
+> 「远端无 tag」等表述均为 **2026-11-04 时点状态**，已被本次实测覆盖，仅作排障知识保留。
 
 ---
 
@@ -95,7 +100,7 @@
   ⑤ 执行发布  ←── docs/release/发布流程.md §2（P1 核心动作）
      │  0 验令牌 → 1 匿名副本跑门禁 → 2 推前核对两端
      │  → 3 推代码 → 4 推后 ls-remote 复核 → 5 打 tag
-     │  → 6 等 Gitee 镜像（最短 5 分钟）→ 7 建 release
+     │  → 6 直推 GitHub + ls-remote 复核 IN_SYNC → 7 建 release
      ▼
   ⑥ P2 验收  ←── docs/release/发布流程.md §3
      │  三层硬证据（ref 相等 / blob sha 字节级 / 工作区干净）
@@ -129,6 +134,10 @@
 `RepoNotFound: 仓 '3dworld' 缺少 bridge 接口模块（world3d.bridge）…… No module named 'pyglet'`
 看着像「三仓没就位」，实际是依赖缺失藏在 `原始错误：` 之后。
 ⇒ 遇到 `RepoNotFound` **先读 `原始错误` 那一段**，别去检查目录名。
+⚠️ **诚实边界**：本轮修的是**依赖漏声明**，不是运行时报错措辞 ——
+`scripts/bootstrap.py` **引导期**已区分「依赖缺失 / 仓没找到」，
+但 `_locate.py` 的 `import_bridge` **运行时仍未区分** `ModuleNotFoundError`。
+别写成「误报已根治」。
 
 **② 同步状态只信 `git ls-remote`，不信 `git push` 的输出**
 push 的回执是「推送动作」的回执，不是「远端确实同步」的证据。
@@ -136,9 +145,13 @@ push 的回执是「推送动作」的回执，不是「远端确实同步」的
 **用户名不一致**是真实坑，推前必须 `fetch` + `ls-remote` 看两端是否领先本地
 （2026-10-29 实测踩过 `fetch first`）。
 
-**③ GitHub 侧不是立刻可见的**
-本机到 GitHub 直连不可靠，靠 Gitee「仓库镜像管理」从服务器侧推，**最短间隔 5 分钟**。
-推完 tag 后 GitHub 上还没看到 —— **那不是推失败**，等镜像跑完再复核。
+**③ GitHub 侧不是立刻可见的（2026-11-04 旧结论，已证伪）**
+当时记为「本机到 GitHub 直连不可靠，靠 Gitee 镜像从服务器侧推，最短间隔 5 分钟；
+推完 tag 后 GitHub 上还没看到不是推失败」。
+⇒ **2026-11-05 实测：该镜像 7 天未生效**（不是 5 分钟窗口），
+GitHub 端 `pushed_at` 停在 2026-10-29、无 tag、无 `ci.yml`、Actions `total_count: 0`。
+**现行做法**：按铁律 3 报备后 **SSH 直推 `github` 远端**，`git ls-remote` 当场复核 IN_SYNC；
+不可再把「GitHub 侧没看到」一律解释成镜像延迟，须先查 `pushed_at` 与 `actions/runs` 判因。
 
 ---
 
@@ -148,14 +161,14 @@ push 的回执是「推送动作」的回执，不是「远端确实同步」的
 
 | 判据 | 来源 |
 |---|---|
-| 回归 `7/7` 模块、45 测试函数 / 90 行 `ok:` | 装了完整依赖的 venv 下实跑 `python -m tests.run_tests` |
+| 回归 `7/7` 模块、45 测试函数 / 90 行 `ok:`（`v0.1.0` tag） | `v0.1.0` tag（`51400e9`）发布时点实跑；当前 HEAD 为 8/8（112 行 `ok:`） |
 | （历史）缺 `pyglet` → `1/6` | 缺 `pyglet` 的解释器下实跑；**该缺口已修复**，此行仅作事故记录 |
 | `selfcheck` 23 项 | 实跑 `python selfcheck.py` |
 | `bootstrap.py --check-only` 通过 | 干净机 / 不设 `CORDIS_SRC` 的自动定位路径实跑 |
-| CI 三平台六闸门 | `.github/workflows/ci.yml`（**仅 Windows 本机实测**，Linux/macOS 待 runner 验证） |
+| CI 三平台六闸门 | `.github/workflows/ci.yml`（**2026-11-05 三平台 runner 全绿**：Actions run `41915638126` 三 job success） |
 | `boot --report` → `SUPERENGINE_BOOT_OK` | 实跑 |
-| 远端无 tag | `git ls-remote --tags` 两端均为空（2026-11-04） |
-| Gitee 镜像最短 5 分钟 | 3dworld 的 CI 注释 + `docs/P5-d_CI_运行与GitHub镜像.md` |
+| 远端 tag | `v0.1.0` 已在两端存在（`daaaf56` → `51400e9`，2026-11-04 打出 / 11-05 直推 GitHub） |
+| （已证伪）Gitee 镜像最短 5 分钟 | 2026-11-05 实测 7 天未同步；现行改为 SSH 直推 + `ls-remote` 复核 |
 | 2026-10-29 踩过 `fetch first` | 本仓 `a5fc431` 提交说明 |
 | 目录名 ≠ 包名 | `superengine/_locate.py` 的 `REPO_PACKAGES` |
 
